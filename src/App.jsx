@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { Home, Users, FileText, Settings, Bell, Menu, X, MapPin, Search } from 'lucide-react';
 import { RadicarPQRS } from './pages/RadicarPQRS';
+import { TramitesPQRS } from './pages/TramitesPQRS';
 
 // Importamos las pantallas
 import { Dashboard } from './pages/Dashboard';
@@ -110,19 +111,9 @@ function AppLayout() {
             {/* AÑADIDO: Rutas para PQRS */}
             <Route path="/pqrs/nuevo" element={<RadicarPQRS />} />
             
-            {/* Pantallas en construcción actualizadas */}
-            <Route path="/pqrs" element={
-              <div className="flex flex-col items-center justify-center h-full text-gray-400">
-                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4"><FileText className="w-8 h-8 text-gray-300" /></div>
-                <h3 className="text-lg font-medium text-gray-600">Bandeja de Trámites</h3>
-                <p className="text-sm mb-6">Aquí verás la tabla estilo Kanban de las PQRS en curso.</p>
-                
-                {/* BOTÓN PROVISIONAL PARA IR A CREAR UNA PQR */}
-                <Link to="/pqrs/nuevo" className="px-6 py-3 bg-emerald-600 text-white font-bold rounded-lg hover:bg-emerald-700 transition-colors shadow-sm">
-                  Radicar Nuevo Trámite
-                </Link>
-              </div>
-            } />
+            {/* AÑADIDO: Tablero Kanban Oficial */}
+            <Route path="/pqrs" element={<TramitesPQRS />} />
+
             <Route path="/trazabilidad" element={
               <div className="flex flex-col items-center justify-center h-full text-gray-400">
                 <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4"><MapPin className="w-8 h-8 text-gray-300" /></div>
