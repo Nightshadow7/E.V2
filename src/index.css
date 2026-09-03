@@ -1,0 +1,7 @@
+@import "tailwindcss";
+
+body {
+font-family: system-ui, -apple-system, sans-serif;
+-webkit-font-smoothing: antialiased;
+background-color: #f8fafc; /* Color slate-50 por defecto */
+}
