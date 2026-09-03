@@ -6,8 +6,11 @@ import {
 import { supabase } from '../supabaseClient';
 
 export const Configuracion = () => {
-  // --- 1. SIMULACIÓN DEL USUARIO ACTUAL ---
-  const currentUser = { id: 1, nombre: 'Administrador Principal', rol: 'Administrador' };
+  // --- 1. USUARIO ACTUAL (EXTRAÍDO DE LA MEMORIA DEL LOGIN) ---
+  const [currentUser] = useState(() => {
+    const saved = localStorage.getItem('ecoUser');
+    return saved ? JSON.parse(saved) : { rol: 'Invitado' };
+  });
 
   // --- 2. ESTADOS GENERALES ---
   const [activeTab, setActiveTab] = useState('perfil');
@@ -23,12 +26,10 @@ export const Configuracion = () => {
   const [showModalDesactivar, setShowModalDesactivar] = useState(false);
   const [empleadoSeleccionado, setEmpleadoSeleccionado] = useState(null);
   const [formData, setFormData] = useState({ nombres: '', email: '', rol: 'Comercial' });
-  const [isSubmitting, setIsSubmitting] = useState(false); 
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // --- 5. LÓGICA DE CARGA (Corregida con useCallback para evitar errores de React) ---
   const cargarEmpleados = useCallback(async () => {
-    // Un pequeño retraso invisible evita el error "Cascading renders"
-    await Promise.resolve(); 
     setLoadingEmpleados(true);
     
     const { data, error } = await supabase
@@ -44,7 +45,10 @@ export const Configuracion = () => {
 
   useEffect(() => {
     if (activeTab === 'equipo') {
-      cargarEmpleados();
+      const fetchData = async () => {
+        await cargarEmpleados();
+      };
+      fetchData();
     }
   }, [activeTab, cargarEmpleados]);
 
@@ -183,7 +187,7 @@ export const Configuracion = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">Nombre Completo</label>
                   <div className="relative">
                     <User className="w-5 h-5 text-gray-400 absolute left-3 top-2.5" />
-                    <input type="text" defaultValue={currentUser.nombre} className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500" />
+                    <input type="text" defaultValue={currentUser.nombres} disabled className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 cursor-not-allowed text-gray-600" />
                   </div>
                 </div>
                 
@@ -191,7 +195,7 @@ export const Configuracion = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">Correo Electrónico (No modificable)</label>
                   <div className="relative">
                     <Mail className="w-5 h-5 text-gray-400 absolute left-3 top-2.5" />
-                    <input type="email" defaultValue="admin@ecosangil.com" disabled className="w-full pl-10 pr-4 py-2.5 bg-gray-100 border border-gray-300 rounded-lg text-sm text-gray-500 cursor-not-allowed" />
+                    <input type="email" defaultValue={currentUser.email} disabled className="w-full pl-10 pr-4 py-2.5 bg-gray-100 border border-gray-300 rounded-lg text-sm text-gray-500 cursor-not-allowed" />
                   </div>
                 </div>
 

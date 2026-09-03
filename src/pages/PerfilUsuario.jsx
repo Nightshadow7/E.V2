@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { 
-  ArrowLeft, User, MapPin, Phone, Mail, 
+  ArrowLeft, User, MapPin, Phone, 
   FileText, Activity, Building, CreditCard, 
   CheckCircle, AlertTriangle, Edit, Save, X, Loader2
 } from 'lucide-react';

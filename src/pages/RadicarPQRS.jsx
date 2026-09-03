@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { 
-  ArrowLeft, Bell, User, Ticket, Clock, Shield, FileText, 
+  ArrowLeft, User, Ticket, Clock, Shield, FileText, 
   UserCheck, Search, MapPin, Droplet, ShieldCheck, RefreshCw, 
   ArrowDownToLine, Hourglass, AlertTriangle, UploadCloud, 
   File, Eye, Trash2, Gavel, Save, Send, Loader2, CheckCircle

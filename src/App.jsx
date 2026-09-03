@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react
 import { Home, Users, FileText, Settings, Bell, Menu, X, MapPin, Search } from 'lucide-react';
 import { RadicarPQRS } from './pages/RadicarPQRS';
 import { TramitesPQRS } from './pages/TramitesPQRS';
+import { Login } from './pages/Login';
 
 // Importamos las pantallas
 import { Dashboard } from './pages/Dashboard';
@@ -11,26 +12,25 @@ import { PerfilUsuario } from './pages/PerfilUsuario';
 import { NuevoUsuario } from './pages/NuevoUsuario'; // <-- 1. AÑADE ESTA IMPORTACIÓN
 import { Configuracion } from './pages/Configuracion'; // <-- NUEVO: IMPORTAR LA CONFIGURACIÓN
 
-function AppLayout() {
+const NavItem = ({ path, to, icon: Icon, text, isActive, onClick }) => {
+  const targetPath = path || to;
+  return (
+    <Link 
+      to={targetPath}
+      onClick={onClick}
+      className={`w-full flex items-center px-4 py-3 mt-2 rounded-lg transition-colors ${
+        isActive ? 'bg-emerald-600 text-white' : 'text-gray-300 hover:bg-slate-800 hover:text-white'
+      }`}
+    >
+      <Icon className="w-5 h-5 mr-3" />
+      <span className="font-medium">{text}</span>
+    </Link>
+  );
+};
+
+function AppLayout({ user, onLogout }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation(); // Esto lee en qué URL estamos (ej: /usuarios)
-
-  const NavItem = ({ path, icon: Icon, text }) => {
-    const isActive = location.pathname === path;
-    return (
-      // Cambiamos <button> por <Link> para que cambie la URL del navegador
-      <Link 
-        to={path}
-        onClick={() => setSidebarOpen(false)}
-        className={`w-full flex items-center px-4 py-3 mt-2 rounded-lg transition-colors ${
-          isActive ? 'bg-emerald-600 text-white' : 'text-gray-300 hover:bg-slate-800 hover:text-white'
-        }`}
-      >
-        <Icon className="w-5 h-5 mr-3" />
-        <span className="font-medium">{text}</span>
-      </Link>
-    );
-  };
 
   const getTitle = () => {
     switch (location.pathname) {
@@ -58,24 +58,36 @@ function AppLayout() {
 
         <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
           {/* Ahora usamos rutas reales como "/" o "/usuarios" */}
-          <NavItem path="/" icon={Home} text="Dashboard" />
-          <NavItem path="/usuarios" icon={Users} text="Usuarios y Predios" />
-          <NavItem path="/pqrs" icon={FileText} text="Radicados PQRS" />
-          <NavItem path="/trazabilidad" icon={MapPin} text="Trazabilidad" />
+          <NavItem path="/" icon={Home} text="Dashboard" isActive={location.pathname === '/'} onClick={() => setSidebarOpen(false)} />
+          <NavItem path="/usuarios" icon={Users} text="Usuarios y Predios" isActive={location.pathname === '/usuarios'} onClick={() => setSidebarOpen(false)} />
+          <NavItem path="/pqrs" icon={FileText} text="Radicados PQRS" isActive={location.pathname === '/pqrs'} onClick={() => setSidebarOpen(false)} />
+          <NavItem path="/trazabilidad" icon={MapPin} text="Trazabilidad" isActive={location.pathname === '/trazabilidad'} onClick={() => setSidebarOpen(false)} />
         </nav>
 
         <div className="p-4 border-t border-slate-800">
-          <Link 
-            to="/configuracion"
-            onClick={() => setSidebarOpen(false)}
-            className={`w-full flex items-center px-4 py-3 rounded-lg transition-colors ${
-              location.pathname === '/configuracion' ? 'bg-emerald-600 text-white' : 'text-gray-300 hover:bg-slate-800 hover:text-white'
-            }`}
-          >
-            <Settings className="w-5 h-5 mr-3" />
-            <span className="font-medium">Configuración</span>
-          </Link>
-        </div>
+            <NavItem to="/configuracion" icon={Settings} text="Configuración" isActive={location.pathname === '/configuracion'} onClick={() => setSidebarOpen(false)} />
+            
+            {/* AÑADIDO: Muestra los datos reales del usuario logueado */}
+            <div className="mt-4 flex items-center justify-between px-4">
+              <div className="flex items-center min-w-0">
+                <div className="w-10 h-10 rounded-full bg-emerald-600 flex items-center justify-center text-white font-bold shrink-0">
+                  {user.nombres.substring(0, 2).toUpperCase()}
+                </div>
+                <div className="ml-3 min-w-0">
+                  <p className="text-sm font-medium text-white truncate" title={user.nombres}>{user.nombres}</p>
+                  <p className="text-xs text-emerald-400 font-bold truncate">{user.rol}</p>
+                </div>
+              </div>
+            </div>
+            
+            {/* AÑADIDO: Botón de Cerrar Sesión */}
+            <button 
+              onClick={onLogout}
+              className="mt-4 w-full py-2 text-xs font-bold text-gray-400 hover:text-white border border-gray-700 rounded-lg hover:bg-slate-800 transition-colors"
+            >
+              CERRAR SESIÓN
+            </button>
+          </div>
       </aside>
 
       {/* Contenido Principal */}
@@ -114,6 +126,8 @@ function AppLayout() {
             {/* AÑADIDO: Tablero Kanban Oficial */}
             <Route path="/pqrs" element={<TramitesPQRS />} />
 
+            
+
             <Route path="/trazabilidad" element={
               <div className="flex flex-col items-center justify-center h-full text-gray-400">
                 <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4"><MapPin className="w-8 h-8 text-gray-300" /></div>
@@ -128,9 +142,25 @@ function AppLayout() {
 }
 
 export default function App() {
+  const [user, setUser] = useState(() => {
+    const loggedInUser = localStorage.getItem('ecoUser');
+    return loggedInUser ? JSON.parse(loggedInUser) : null;
+  });
+
+  const handleLogout = () => {
+    setUser(null);
+    localStorage.removeItem('ecoUser');
+  };
+
+  // AÑADIDO: Si NO hay usuario, mostramos el Login. No lo dejamos pasar al CRM.
+  if (!user) {
+    return <Login onLogin={setUser} />;
+  }
+
+  // AÑADIDO: Si SI hay usuario, le pasamos los datos a la estructura del CRM
   return (
     <Router>
-      <AppLayout />
+      <AppLayout user={user} onLogout={handleLogout} />
     </Router>
   );
 }

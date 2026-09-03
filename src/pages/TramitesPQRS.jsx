@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { 
   Plus, Search, Filter, MoreVertical, Clock, 
-  AlertTriangle, CheckCircle, FileText, Loader2, ArrowRight
+  AlertTriangle, Loader2
 } from 'lucide-react';
 
 export const TramitesPQRS = () => {
@@ -22,11 +22,7 @@ export const TramitesPQRS = () => {
     '5. Respuesta Final'
   ];
 
-  useEffect(() => {
-    cargarRadicados();
-  }, []);
-
-  const cargarRadicados = async () => {
+  async function cargarRadicados() {
     setLoading(true);
     try {
       // Magia Relacional: Traemos la PQR + Datos de la Casa + Datos de la Persona en 1 sola consulta
@@ -52,7 +48,14 @@ export const TramitesPQRS = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }
+
+  useEffect(() => {
+    const fetchData = async () => {
+      await cargarRadicados();
+    };
+    fetchData();
+  }, []);
 
   const radicadosFiltrados = radicados.filter(pqr => {
     if (!busqueda) return true;
