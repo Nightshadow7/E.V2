@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { Home, Users, FileText, Settings, Bell, Menu, X, MapPin, Search } from 'lucide-react';
+import { RadicarPQRS } from './pages/RadicarPQRS';
 
 // Importamos las pantallas
 import { Dashboard } from './pages/Dashboard';
@@ -86,7 +87,7 @@ function AppLayout() {
             </h1>
           </div>
           <div className="flex items-center space-x-4">
-             <div className="relative hidden md:block">
+            <div className="relative hidden md:block">
               <Search className="w-5 h-5 text-gray-400 absolute left-3 top-2" />
               <input type="text" placeholder="Buscar cédula o radicado..." className="pl-10 pr-4 py-2 border border-gray-300 rounded-full text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 w-64 bg-gray-50" />
             </div>
@@ -102,24 +103,30 @@ function AppLayout() {
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/usuarios" element={<UsuariosPredios />} />
-            <Route path="/usuarios/nuevo" element={<NuevoUsuario />} /> {/* <-- 2. AÑADE ESTA RUTA ANTES DE LA DEL PERFIL */}
+            <Route path="/usuarios/nuevo" element={<NuevoUsuario />} /> 
             <Route path="/usuarios/:id" element={<PerfilUsuario />} /> 
+            <Route path="/configuracion" element={<Configuracion />} /> 
             
-            <Route path="/configuracion" element={<Configuracion />} /> {/* <-- NUEVO: RUTA DE CONFIGURACIÓN */}
-
-            {/* Pantallas en construcción */}
+            {/* AÑADIDO: Rutas para PQRS */}
+            <Route path="/pqrs/nuevo" element={<RadicarPQRS />} />
+            
+            {/* Pantallas en construcción actualizadas */}
             <Route path="/pqrs" element={
               <div className="flex flex-col items-center justify-center h-full text-gray-400">
                 <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4"><FileText className="w-8 h-8 text-gray-300" /></div>
-                <h3 className="text-lg font-medium text-gray-600">Módulo en Construcción</h3>
-                <p className="text-sm">Esta pantalla estará disponible muy pronto.</p>
+                <h3 className="text-lg font-medium text-gray-600">Bandeja de Trámites</h3>
+                <p className="text-sm mb-6">Aquí verás la tabla estilo Kanban de las PQRS en curso.</p>
+                
+                {/* BOTÓN PROVISIONAL PARA IR A CREAR UNA PQR */}
+                <Link to="/pqrs/nuevo" className="px-6 py-3 bg-emerald-600 text-white font-bold rounded-lg hover:bg-emerald-700 transition-colors shadow-sm">
+                  Radicar Nuevo Trámite
+                </Link>
               </div>
             } />
             <Route path="/trazabilidad" element={
               <div className="flex flex-col items-center justify-center h-full text-gray-400">
                 <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4"><MapPin className="w-8 h-8 text-gray-300" /></div>
                 <h3 className="text-lg font-medium text-gray-600">Módulo en Construcción</h3>
-                <p className="text-sm">Esta pantalla estará disponible muy pronto.</p>
               </div>
             } />
           </Routes>
