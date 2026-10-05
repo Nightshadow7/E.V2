@@ -1,0 +1,61 @@
+import { PGlite } from '@electric-sql/pglite';
+import { readFileSync } from 'node:fs';
+import assert from 'node:assert/strict';
+const db = new PGlite();
+const ids = { Administrador: '00000000-0000-0000-0000-000000000001', Lider: '00000000-0000-0000-0000-000000000002', Comercial: '00000000-0000-0000-0000-000000000003' };
+try {
+await db.exec(`create role anon; create role authenticated; create schema auth; create schema storage;
+create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
+grant usage on schema auth,storage to authenticated,anon;
+create table auth.users(id uuid primary key,email text,email_confirmed_at timestamptz,encrypted_password text);
+create table public.empleados(id_empleado uuid primary key default gen_random_uuid(),nombres text,email text,rol text,estado text);
+create table public.personas(id_persona uuid primary key default gen_random_uuid(),nombres_razon_social text);
+create table public.predios(id_predio uuid primary key default gen_random_uuid(),direccion_fisica text);
+create table public.vinculos_servicio(id_vinculo uuid primary key default gen_random_uuid());
+create table public.pqrs(id_pqr uuid primary key default gen_random_uuid(),tipo_solicitud text,fase_actual text,datos_especificos jsonb);
+create table storage.buckets(id text primary key,name text,public boolean,file_size_limit bigint,allowed_mime_types text[]);
+create table storage.objects(id uuid primary key default gen_random_uuid(),bucket_id text,name text,metadata jsonb);
+alter table storage.objects enable row level security;
+grant select,insert,update,delete on storage.objects to authenticated,anon;
+create function storage.foldername(name text) returns text[] language sql immutable as $$select string_to_array(name,'/')$$;`);
+for (const [rol,id] of Object.entries(ids)) {
+ await db.query('insert into auth.users values($1,$2,now(),$3)',[id,`${rol.toLowerCase()}@example.test`,'old-hash']);
+ await db.query('insert into empleados(nombres,email,rol,estado) values($1,$2,$3,$4)',[rol,`${rol.toLowerCase()}@example.test`,rol,'Activo']);
+}
+const sql=readFileSync('supabase/migrations/202610050001_auth_auditoria_configuracion.sql','utf8');
+await db.exec(sql);
+await db.exec(sql); // La migración debe poder repetirse.
+const as = async role => { await db.exec('reset role'); await db.query("select set_config('request.jwt.claim.sub',$1,false)",[ids[role] || '']); await db.exec(`set role ${role === 'anon' ? 'anon' : 'authenticated'}`); };
+await as('Comercial');
+await db.query('insert into personas(nombres_razon_social) values($1)',['Prueba']);
+await db.query('update personas set nombres_razon_social=$1',['Actualizado']);
+assert.equal((await db.query('select * from auditoria_eventos')).rows.length,0,'Comercial no debe leer auditoría');
+await assert.rejects(db.exec("insert into auditoria_eventos(actor_nombre,tabla,accion) values('Falso','personas','UPDATE')"));
+await assert.rejects(db.exec("update empleados set rol='Administrador' where auth_user_id=auth.uid()"));
+assert.equal((await db.exec("update configuracion_sistema set max_archivo_mb=3 where id=1"))[0].affectedRows,0);
+await db.exec("update empleados set nombres='Nombre nuevo' where auth_user_id=auth.uid()");
+await db.query('insert into storage.objects(bucket_id,name,metadata) values($1,$2,$3)', ['pqrs-anexos',`${ids.Comercial}/test.pdf`,{size:1024}]);
+await assert.rejects(db.query('insert into storage.objects(bucket_id,name) values($1,$2)',['pqrs-anexos',`${ids.Administrador}/falso.pdf`]));
+await db.query('insert into pqrs(tipo_solicitud,fase_actual,datos_especificos) values($1,$2,$3)', ['Reclamo','1. Recepción',{asunto:'Prueba',descripcion:'Detalle',documento_soporte_path:`${ids.Comercial}/test.pdf`}]);
+await as('Lider');
+let rows=(await db.query('select * from auditoria_eventos')).rows;
+assert.ok(rows.some(r=>r.accion==='ARCHIVO_CARGADO' && r.actor_id===ids.Comercial));
+assert.ok(rows.some(r=>r.accion==='UPDATE' && r.antes?.nombres_razon_social==='Prueba' && r.despues?.nombres_razon_social==='Actualizado'));
+await assert.rejects(db.exec('delete from auditoria_eventos'));
+await as('Administrador');
+await db.exec("update configuracion_sistema set exigir_anexo_reclamo=true,max_archivo_mb=2 where id=1");
+await as('Comercial');
+await assert.rejects(db.query('insert into pqrs(tipo_solicitud,datos_especificos) values($1,$2)',['Reclamo',{asunto:'Sin anexo',descripcion:'Debe fallar'}]));
+await as('anon');
+await assert.rejects(db.exec('select * from auditoria_eventos'));
+await assert.rejects(db.exec('select * from empleados'));
+await db.exec('reset role');
+await db.query("select set_config('request.jwt.claim.sub',$1,false)",[ids.Comercial]);
+await db.query('update auth.users set email=$1,encrypted_password=$2 where id=$3',['nuevo@example.test','never-log-this-hash',ids.Comercial]);
+assert.equal((await db.query('select email from empleados where auth_user_id=$1',[ids.Comercial])).rows[0].email,'nuevo@example.test');
+rows=(await db.query('select * from auditoria_eventos')).rows;
+assert.ok(rows.some(r=>r.accion==='CUENTA_ACTUALIZADA' && r.campos.includes('contraseña')));
+assert.ok(!JSON.stringify(rows).includes('never-log-this-hash'));
+assert.ok(!JSON.stringify(rows).includes('encrypted_password'));
+console.log('OK SQL: migración repetible, tres roles, auditoría inmutable, autor y antes/después, archivos, reglas, correo sincronizado y claves excluidas.');
+} finally { await db.close(); }

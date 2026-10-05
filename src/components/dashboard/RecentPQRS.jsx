@@ -34,7 +34,7 @@ export const RecentPQRS = () => {
     cargarRecientes();
   }, []);
 
-  const getColorFase = (fase) => {
+  const getColorFase = (fase = '') => {
     if (fase.includes('1.')) return 'bg-blue-100 text-blue-700';
     if (fase.includes('2.') || fase.includes('3.')) return 'bg-amber-100 text-amber-700';
     if (fase.includes('4.')) return 'bg-purple-100 text-purple-700';
@@ -89,7 +89,7 @@ export const RecentPQRS = () => {
                     {row.tipo_solicitud}
                   </td>
                   <td className="px-6 py-4 text-center">
-                    <span className={`px-3 py-1 rounded-full text-[11px] font-bold ${getColorFase(row.fase_actual)}`}>
+                    <span className={`px-3 py-1 rounded-full text-[11px] font-bold ${getColorFase(row.fase_actual || '')}`}>
                       {row.fase_actual}
                     </span>
                   </td>

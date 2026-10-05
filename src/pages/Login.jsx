@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { supabase } from '../supabaseClient';
+import { cargarEmpleadoAutenticado } from '../lib/session';
 import { Mail, Lock, Loader2, ShieldCheck, AlertCircle } from 'lucide-react';
 
 export const Login = ({ onLogin }) => {
@@ -14,28 +15,14 @@ export const Login = ({ onLogin }) => {
     setError('');
 
     try {
-      // 1. Buscamos el correo en la tabla de empleados (ahora ignora mayúsculas/minúsculas)
-      const { data, error: dbError } = await supabase
-        .from('empleados')
-        .select('*')
-        .ilike('email', email.trim())
-        .single();
-
-      if (dbError || !data) {
-        throw new Error('Usuario no encontrado en el sistema.');
-      }
-
-      // 2. Verificamos si la cuenta está activa (Soft Delete)
-      if (data.estado !== 'Activo') {
-        throw new Error('Esta cuenta ha sido desactivada. Contacta al administrador.');
-      }
-
-      // 3. Login Exitoso (Guardamos en la memoria del navegador)
-      // Nota: En esta fase MVP validamos por email. Luego conectaremos el Auth real de Supabase.
-      localStorage.setItem('ecoUser', JSON.stringify(data));
-      onLogin(data); // Le avisamos a React que ya puede mostrar el CRM
+      const { error: authError } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+      if (authError) throw new Error('Correo o contraseña incorrectos, o correo sin confirmar.', { cause: authError });
+      const empleado = await cargarEmpleadoAutenticado();
+      if (!empleado) throw new Error('No se pudo validar la sesión.');
+      onLogin(empleado);
 
     } catch (err) {
+      await supabase.auth.signOut();
       setError(err.message);
     } finally {
       setLoading(false);

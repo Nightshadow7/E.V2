@@ -1,192 +1,54 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useCallback, useEffect, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
-import { 
-  Plus, Search, Filter, MoreVertical, Clock, 
-  AlertTriangle, Loader2
-} from 'lucide-react';
+import { TIPOS_PQRS, FASES_PQRS, normalizarPQR, filtrarPQR } from '../lib/pqrs';
+import { DetallePQRS } from '../components/pqrs/DetallePQRS';
 
 export const TramitesPQRS = () => {
-  const navigate = useNavigate();
-  
-  const [loading, setLoading] = useState(true);
+  const [params, setParams] = useSearchParams();
   const [radicados, setRadicados] = useState([]);
-  const [busqueda, setBusqueda] = useState('');
-
-  // Las columnas oficiales de nuestro flujo estricto
-  const fases = [
-    '1. Recepción',
-    '2. Visita de Verificación',
-    '3. Cargue Documental',
-    '4. Radicado Ventanilla',
-    '5. Respuesta Final'
-  ];
-
-  async function cargarRadicados() {
-    setLoading(true);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [detalle, setDetalle] = useState(null);
+  const [filtros, setFiltros] = useState({ tipo: 'Todos', urgencia: 'Todas', fase: 'Todas' });
+  const busqueda = params.get('q') || '';
+  const cargar = useCallback(async () => {
+    setLoading(true); setError('');
     try {
-      // Magia Relacional: Traemos la PQR + Datos de la Casa + Datos de la Persona en 1 sola consulta
-      const { data, error } = await supabase
-        .from('pqrs')
-        .select(`
-          id_pqr,
-          tipo_solicitud,
-          fase_actual,
-          fecha_creacion,
-          datos_especificos,
-          vinculos_servicio (
-            personas ( nombres_razon_social, numero_documento ),
-            predios ( codigo_acuasan, direccion_fisica, barrio )
-          )
-        `)
-        .order('fecha_creacion', { ascending: false });
-
-      if (error) throw error;
-      if (data) setRadicados(data);
-    } catch (error) {
-      console.error("Error al cargar PQRS:", error);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    const fetchData = async () => {
-      await cargarRadicados();
-    };
-    fetchData();
+      const acumulados = [];
+      for (let inicio = 0; ; inicio += 500) {
+        const { data, error } = await supabase.from('pqrs').select('id_pqr,tipo_solicitud,fase_actual,fecha_creacion,datos_especificos,vinculos_servicio(personas(nombres_razon_social,numero_documento),predios(codigo_acuasan,direccion_fisica))').order('fecha_creacion', { ascending: false }).order('id_pqr', { ascending: false }).range(inicio, inicio + 499);
+        if (error) throw error;
+        acumulados.push(...(data || []));
+        if (!data || data.length < 500) break;
+      }
+      setRadicados(acumulados.map(normalizarPQR));
+    } catch (err) { setError(`No se pudieron cargar las solicitudes: ${err.message}`); }
+    finally { setLoading(false); }
   }, []);
-
-  const radicadosFiltrados = radicados.filter(pqr => {
-    if (!busqueda) return true;
-    const termino = busqueda.toLowerCase();
-    const cliente = pqr.vinculos_servicio?.personas?.nombres_razon_social?.toLowerCase() || '';
-    const asunto = pqr.datos_especificos?.asunto?.toLowerCase() || '';
-    const tipo = pqr.tipo_solicitud?.toLowerCase() || '';
-    
-    return cliente.includes(termino) || asunto.includes(termino) || tipo.includes(termino);
-  });
-
-  const TarjetaPQR = ({ pqr }) => {
-    const urgencia = pqr.datos_especificos?.urgencia || 'media';
-    const cliente = pqr.vinculos_servicio?.personas?.nombres_razon_social || 'Desconocido';
-    const direccion = pqr.vinculos_servicio?.predios?.direccion_fisica || 'Sin dirección';
-    
-    // Formatear fecha
-    const fecha = new Date(pqr.fecha_creacion).toLocaleDateString('es-CO', { month: 'short', day: 'numeric' });
-
-    return (
-      <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow cursor-pointer group flex flex-col gap-3">
-        <div className="flex justify-between items-start gap-2">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 bg-gray-100 px-2 py-1 rounded">
-            {pqr.tipo_solicitud.substring(0, 20)}...
-          </span>
-          <button className="text-gray-400 hover:text-gray-700 opacity-0 group-hover:opacity-100 transition-opacity">
-            <MoreVertical className="w-4 h-4" />
-          </button>
-        </div>
-
-        <div>
-          <h4 className="text-sm font-bold text-gray-900 leading-tight mb-1">{cliente}</h4>
-          <p className="text-xs text-gray-500 truncate" title={pqr.datos_especificos?.asunto}>
-            {pqr.datos_especificos?.asunto || 'Sin asunto registrado'}
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2 text-[11px] font-medium text-gray-500">
-          <span className="truncate max-w-[140px]">{direccion}</span>
-        </div>
-
-        <div className="flex justify-between items-center pt-3 border-t border-gray-100 mt-1">
-          <div className="flex items-center gap-1.5">
-            <Clock className="w-3.5 h-3.5 text-gray-400" />
-            <span className="text-xs font-bold text-gray-600">{fecha}</span>
-          </div>
-          
-          {urgencia === 'alta' && <span className="flex items-center gap-1 text-[10px] font-bold text-rose-600 bg-rose-50 px-2 py-1 rounded-full"><AlertTriangle className="w-3 h-3"/> Alta</span>}
-          {urgencia === 'media' && <span className="flex items-center gap-1 text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-1 rounded-full">Media</span>}
-          {urgencia === 'baja' && <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full">Baja</span>}
-        </div>
-      </div>
-    );
-  };
-
-  return (
-    <div className="h-full flex flex-col bg-slate-50 overflow-hidden">
-      
-      {/* HEADER DE LA BANDEJA */}
-      <div className="px-6 py-4 border-b border-gray-200 bg-white flex flex-col sm:flex-row justify-between items-center gap-4 shrink-0">
-        <div>
-          <h2 className="text-xl font-bold text-gray-800">Bandeja de Trámites (PQRS)</h2>
-          <p className="text-sm text-gray-500 mt-0.5">Gestiona las solicitudes de los usuarios a través de sus fases.</p>
-        </div>
-        
-        <div className="flex items-center gap-3 w-full sm:w-auto">
-          <div className="relative flex-1 sm:w-64">
-            <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
-            <input 
-              type="text"
-              value={busqueda}
-              onChange={(e) => setBusqueda(e.target.value)}
-              placeholder="Buscar trámite o cliente..."
-              className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-            />
-          </div>
-          <button className="p-2 border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50 bg-white">
-            <Filter className="w-4 h-4" />
-          </button>
-          <button 
-            onClick={() => navigate('/pqrs/nuevo')}
-            className="px-4 py-2 bg-emerald-600 text-white font-medium rounded-lg hover:bg-emerald-700 transition-colors flex items-center shadow-sm whitespace-nowrap"
-          >
-            <Plus className="w-4 h-4 mr-2" /> Nuevo Trámite
-          </button>
-        </div>
-      </div>
-
-      {/* ÁREA KANBAN (Scroll Horizontal y Vertical) */}
-      <div className="flex-1 overflow-x-auto overflow-y-hidden p-6">
-        {loading ? (
-          <div className="flex flex-col items-center justify-center h-full text-gray-400">
-            <Loader2 className="w-8 h-8 animate-spin mb-4 text-emerald-500" />
-            <p className="text-sm font-medium">Sincronizando trámites con Supabase...</p>
-          </div>
-        ) : (
-          <div className="flex gap-6 h-full min-w-max pb-2">
-            
-            {/* Iteramos sobre las 5 fases estrictas */}
-            {fases.map((fase) => {
-              // Filtramos los radicados que pertenecen a esta columna
-              const radicadosEnFase = radicadosFiltrados.filter(pqr => pqr.fase_actual === fase);
-              
-              return (
-                <div key={fase} className="w-80 flex flex-col h-full bg-slate-100/50 rounded-xl border border-gray-200/60 overflow-hidden shrink-0">
-                  {/* Encabezado de la Columna */}
-                  <div className="px-4 py-3 border-b border-gray-200/60 bg-slate-100 flex justify-between items-center shrink-0">
-                    <h3 className="font-bold text-sm text-gray-700 truncate">{fase}</h3>
-                    <span className="bg-white text-gray-600 text-xs font-bold px-2 py-0.5 rounded-full shadow-sm">
-                      {radicadosEnFase.length}
-                    </span>
-                  </div>
-                  
-                  {/* Contenedor de Tarjetas (Scroll Vertical) */}
-                  <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
-                    {radicadosEnFase.length === 0 ? (
-                      <div className="h-24 border-2 border-dashed border-gray-200 rounded-xl flex items-center justify-center text-gray-400 text-xs font-medium">
-                        Sin trámites aquí
-                      </div>
-                    ) : (
-                      radicadosEnFase.map(pqr => <TarjetaPQR key={pqr.id_pqr} pqr={pqr} />)
-                    )}
-                  </div>
-                </div>
-              )
-            })}
-            
-          </div>
-        )}
-      </div>
-
+  useEffect(() => { const iniciar = async () => { await cargar(); }; iniciar(); }, [cargar]);
+  const cambiarBusqueda = q => setParams(prev => { const next = new URLSearchParams(prev); if (q) next.set('q', q); else next.delete('q'); return next; }, { replace: true });
+  const filtrados = radicados.filter(p => filtrarPQR(p, { ...filtros, busqueda }));
+  const categorias = [...TIPOS_PQRS, ...new Set(radicados.map(p => p.tipo_solicitud).filter(t => !TIPOS_PQRS.includes(t)))].filter(t => filtros.tipo === 'Todos' || filtros.tipo === t);
+  const control = 'border rounded-lg p-2 bg-white min-w-0';
+  return <div className="space-y-5 min-w-0">
+    <header className="flex flex-wrap gap-4 justify-between items-center"><div><h2 className="text-2xl font-bold">Trámites PQRS por categoría</h2><p className="text-gray-600">Cada tipo tiene su sección, sus solicitudes y su formulario.</p></div><Link to="/pqrs/nuevo" className="px-4 py-2 rounded-lg bg-emerald-600 text-white">Nuevo trámite</Link></header>
+    <div className="bg-white border rounded-xl p-4 flex flex-wrap gap-3 items-end">
+      <label className="flex-1 min-w-40">Buscar<input className={`${control} block w-full`} value={busqueda} onChange={e => cambiarBusqueda(e.target.value)} placeholder="Radicado, cliente, cédula o asunto" /></label>
+      <label>Tipo<select className={`${control} block`} value={filtros.tipo} onChange={e => setFiltros({ ...filtros, tipo: e.target.value })}>{['Todos', ...TIPOS_PQRS].map(t => <option key={t}>{t}</option>)}</select></label>
+      <label>Fase<select className={`${control} block max-w-60`} value={filtros.fase} onChange={e => setFiltros({ ...filtros, fase: e.target.value })}>{['Todas', ...FASES_PQRS].map(f => <option key={f}>{f}</option>)}</select></label>
+      <label>Urgencia<select className={`${control} block`} value={filtros.urgencia} onChange={e => setFiltros({ ...filtros, urgencia: e.target.value })}>{['Todas','baja','media','alta'].map(u => <option key={u}>{u}</option>)}</select></label>
+      <button onClick={() => { cambiarBusqueda(''); setFiltros({ tipo: 'Todos', fase: 'Todas', urgencia: 'Todas' }); }} className="underline py-2">Limpiar filtros</button><button onClick={cargar} disabled={loading} className="border rounded px-3 py-2">Actualizar</button>
     </div>
-  );
+    {error && <p role="alert" className="bg-red-50 text-red-700 p-4 rounded-lg">{error}</p>}
+    {loading ? <p role="status">Cargando trámites…</p> : !error && <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
+      {categorias.map(tipo => { const solicitudes = filtrados.filter(p => p.tipo_solicitud === tipo); return <section key={tipo} aria-label={`Solicitudes de ${tipo}`} className="bg-white border border-gray-200 rounded-xl overflow-hidden min-w-0">
+        <header className="p-4 bg-emerald-50 border-b flex flex-wrap gap-2 justify-between items-center"><h3 className="font-bold text-lg text-emerald-900">{tipo} <span className="text-sm">({solicitudes.length})</span></h3>{TIPOS_PQRS.includes(tipo) && <Link className="text-emerald-800 underline text-sm" to={`/pqrs/nuevo?tipo=${encodeURIComponent(tipo)}`}>Crear {tipo.toLowerCase()}</Link>}</header>
+        <div className="p-4 space-y-3">{!solicitudes.length && <p className="text-gray-500 py-4">No hay solicitudes de {tipo.toLowerCase()} para estos filtros.</p>}
+          {solicitudes.map(pqr => <article key={pqr.id_pqr} className="border rounded-lg p-4 space-y-2"><div className="flex justify-between gap-3"><strong className="break-words">{pqr.vinculos_servicio.personas?.nombres_razon_social || 'Nombre no disponible'}</strong><span className="text-xs text-gray-500 break-all">#PQR-{pqr.id_pqr}</span></div><p>{pqr.datos_especificos.asunto || 'Sin asunto registrado'}</p><p className="text-xs text-gray-600">{pqr.fase_actual || 'Sin fase'} · Urgencia {pqr.datos_especificos.urgencia || 'media'}</p><p className="text-xs text-gray-500">{pqr.vinculos_servicio.predios?.direccion_fisica || 'Sin dirección'} · Acuasan {pqr.vinculos_servicio.predios?.codigo_acuasan || '—'}</p><button onClick={() => setDetalle(pqr)} className="text-emerald-700 font-medium underline">Ver detalles #{pqr.id_pqr}</button></article>)}
+        </div>
+      </section>; })}
+    </div>}
+    {detalle && <DetallePQRS pqr={detalle} onClose={() => setDetalle(null)} onSaved={async () => { setDetalle(null); await cargar(); }} />}
+  </div>;
 };

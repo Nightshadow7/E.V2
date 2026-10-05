@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Search, Plus, Loader2, User, MapPin } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 
 export const UsuariosPredios = () => {
@@ -8,8 +8,9 @@ export const UsuariosPredios = () => {
   const [loading, setLoading] = useState(true);
   
   // Estados para la búsqueda
-  const [busqueda, setBusqueda] = useState('');
-  const [busquedaDiferida, setBusquedaDiferida] = useState('');
+  const [params] = useSearchParams();
+  const [busqueda, setBusqueda] = useState(params.get('q') || '');
+  const [busquedaDiferida, setBusquedaDiferida] = useState(params.get('q') || '');
   const [filtro, setFiltro] = useState('todos');
   
   const navigate = useNavigate();

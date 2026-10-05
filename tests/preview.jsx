@@ -1,0 +1,12 @@
+import { createRoot } from 'react-dom/client';
+import { MemoryRouter, Link, Routes, Route } from 'react-router-dom';
+import { supabase } from '../src/supabaseClient';
+import { instalarMocks } from './mock-supabase.mjs';
+import { TramitesPQRS } from '../src/pages/TramitesPQRS';
+import { RadicarPQRS } from '../src/pages/RadicarPQRS';
+import { Configuracion } from '../src/pages/Configuracion';
+import { Trazabilidad } from '../src/pages/Trazabilidad';
+import '../src/index.css';
+const mock = instalarMocks(supabase);
+localStorage.setItem('ecoUser', JSON.stringify(mock.user));
+createRoot(document.getElementById('root')).render(<MemoryRouter initialEntries={['/pqrs']}><div className="p-4 bg-amber-100">ENTORNO DE PRUEBA · datos ficticios · sin escrituras en Supabase</div><nav className="flex gap-5 p-4 bg-white border-b"><Link to="/pqrs">PQRS</Link><Link to="/configuracion">Configuración</Link><Link to="/trazabilidad">Trazabilidad</Link></nav><main className="p-4 md:p-6 max-w-7xl mx-auto"><Routes><Route path="/pqrs" element={<TramitesPQRS />} /><Route path="/pqrs/nuevo" element={<RadicarPQRS />} /><Route path="/configuracion" element={<Configuracion user={mock.user} />} /><Route path="/trazabilidad" element={<Trazabilidad user={mock.user} />} /></Routes></main></MemoryRouter>);

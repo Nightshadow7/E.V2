@@ -1,21 +1,17 @@
 import { useState, useEffect, useCallback } from 'react';
-import { 
-  Shield, User, Sliders, Mail, Save, Plus, 
-  Trash2, Edit, X, CheckCircle, AlertTriangle, Loader2 
+import {
+  Shield, User, Sliders, Plus,
+  Trash2, Edit, X, CheckCircle, AlertTriangle, Loader2
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 
-export const Configuracion = () => {
-  // --- 1. USUARIO ACTUAL (EXTRAÍDO DE LA MEMORIA DEL LOGIN) ---
-  const [currentUser] = useState(() => {
-    const saved = localStorage.getItem('ecoUser');
-    return saved ? JSON.parse(saved) : { rol: 'Invitado' };
-  });
+import { MiCuenta } from '../components/settings/MiCuenta';
+import { VariablesSistema } from '../components/settings/VariablesSistema';
+import { ROLES } from '../lib/roles';
 
-  // --- 2. ESTADOS GENERALES ---
+export const Configuracion = ({ user }) => {
+  const currentUser = user;
   const [activeTab, setActiveTab] = useState('perfil');
-  const [mensajePerfil, setMensajePerfil] = useState('');
-  const [isSavingPerfil, setIsSavingPerfil] = useState(false);
 
   // --- 3. ESTADO DE LOS EMPLEADOS ---
   const [empleados, setEmpleados] = useState([]);
@@ -31,12 +27,12 @@ export const Configuracion = () => {
   // --- 5. LÓGICA DE CARGA (Corregida con useCallback para evitar errores de React) ---
   const cargarEmpleados = useCallback(async () => {
     setLoadingEmpleados(true);
-    
+
     const { data, error } = await supabase
       .from('empleados')
       .select('*')
       .order('nombres', { ascending: true });
-    
+
     if (!error && data) {
       setEmpleados(data);
     }
@@ -44,24 +40,15 @@ export const Configuracion = () => {
   }, []);
 
   useEffect(() => {
-    if (activeTab === 'equipo') {
+    if (activeTab === 'equipo' && currentUser.rol === 'Administrador') {
       const fetchData = async () => {
         await cargarEmpleados();
       };
       fetchData();
     }
-  }, [activeTab, cargarEmpleados]);
+  }, [activeTab, cargarEmpleados, currentUser.rol]);
 
   // --- 6. FUNCIONES DE INTERACCIÓN ---
-  const handleGuardarPerfil = () => {
-    setIsSavingPerfil(true);
-    setTimeout(() => {
-      setIsSavingPerfil(false);
-      setMensajePerfil('¡Perfil actualizado con éxito!');
-      setTimeout(() => setMensajePerfil(''), 3000);
-    }, 1000);
-  };
-
   const abrirModalNuevo = () => {
     setFormData({ nombres: '', email: '', rol: 'Comercial' });
     setEmpleadoSeleccionado(null);
@@ -93,23 +80,25 @@ export const Configuracion = () => {
         if (empleadoSeleccionado.rol === 'Administrador') {
             rolA_Guardar = 'Administrador';
         }
-        await supabase.from('empleados').update({
+        const { error } = await supabase.from('empleados').update({
           nombres: formData.nombres,
           email: formData.email,
           rol: rolA_Guardar
         }).eq('id_empleado', empleadoSeleccionado.id_empleado);
+        if (error) throw error;
       } else {
-        await supabase.from('empleados').insert({
+        const { error } = await supabase.from('empleados').insert({
           nombres: formData.nombres,
           email: formData.email,
           rol: formData.rol,
           estado: 'Activo'
         });
+        if (error) throw error;
       }
       await cargarEmpleados();
       setShowModalEmpleado(false);
     } catch (error) {
-      console.error("Error al guardar empleado:", error);
+      alert(`No se pudo guardar el empleado: ${error.message}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -123,11 +112,12 @@ export const Configuracion = () => {
     setIsSubmitting(true);
     try {
       const nuevoEstado = empleadoSeleccionado.estado === 'Activo' ? 'Inactivo' : 'Activo';
-      await supabase.from('empleados').update({ estado: nuevoEstado }).eq('id_empleado', empleadoSeleccionado.id_empleado);
+      const { error } = await supabase.from('empleados').update({ estado: nuevoEstado }).eq('id_empleado', empleadoSeleccionado.id_empleado);
+        if (error) throw error;
       await cargarEmpleados();
       setShowModalDesactivar(false);
     } catch(error) {
-      console.error(error);
+      alert(`No se pudo cambiar el estado: ${error.message}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -141,18 +131,18 @@ export const Configuracion = () => {
       </div>
 
       <div className="flex flex-col md:flex-row gap-6 flex-1">
-        
+
         {/* MENÚ LATERAL */}
         <div className="w-full md:w-64 flex flex-col space-y-1">
-          <button 
+          <button
             onClick={() => setActiveTab('perfil')}
             className={`flex items-center px-4 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === 'perfil' ? 'bg-emerald-50 text-emerald-700' : 'text-gray-600 hover:bg-gray-100'}`}
           >
             <User className="w-5 h-5 mr-3" /> Mi Perfil
           </button>
-          
+
           {currentUser.rol === 'Administrador' && (
-            <button 
+            <button
               onClick={() => setActiveTab('equipo')}
               className={`flex items-center px-4 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === 'equipo' ? 'bg-emerald-50 text-emerald-700' : 'text-gray-600 hover:bg-gray-100'}`}
             >
@@ -160,7 +150,7 @@ export const Configuracion = () => {
             </button>
           )}
 
-          <button 
+          <button
             onClick={() => setActiveTab('sistema')}
             className={`flex items-center px-4 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === 'sistema' ? 'bg-emerald-50 text-emerald-700' : 'text-gray-600 hover:bg-gray-100'}`}
           >
@@ -170,58 +160,23 @@ export const Configuracion = () => {
 
         {/* ÁREA DE CONTENIDO */}
         <div className="flex-1 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden relative">
-          
+
           {/* PESTAÑA: PERFIL */}
-          {activeTab === 'perfil' && (
-            <div className="p-8">
-              <h3 className="text-lg font-bold text-gray-900 mb-6 border-b pb-2">Información de mi Cuenta</h3>
-              
-              {mensajePerfil && (
-                <div className="mb-6 p-4 bg-emerald-50 text-emerald-700 rounded-lg flex items-center font-medium border border-emerald-200">
-                  <CheckCircle className="w-5 h-5 mr-2" /> {mensajePerfil}
-                </div>
-              )}
-
-              <div className="max-w-xl space-y-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Nombre Completo</label>
-                  <div className="relative">
-                    <User className="w-5 h-5 text-gray-400 absolute left-3 top-2.5" />
-                    <input type="text" defaultValue={currentUser.nombres} disabled className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 cursor-not-allowed text-gray-600" />
-                  </div>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Correo Electrónico (No modificable)</label>
-                  <div className="relative">
-                    <Mail className="w-5 h-5 text-gray-400 absolute left-3 top-2.5" />
-                    <input type="email" defaultValue={currentUser.email} disabled className="w-full pl-10 pr-4 py-2.5 bg-gray-100 border border-gray-300 rounded-lg text-sm text-gray-500 cursor-not-allowed" />
-                  </div>
-                </div>
-
-                <div className="pt-4 border-t border-gray-100">
-                  <button onClick={handleGuardarPerfil} disabled={isSavingPerfil} className="px-5 py-2.5 bg-emerald-600 text-white font-medium rounded-lg hover:bg-emerald-700 transition-colors flex items-center shadow-sm disabled:opacity-70">
-                    {isSavingPerfil ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-                    {isSavingPerfil ? 'Guardando...' : 'Guardar Cambios'}
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
+          {activeTab === 'perfil' && <MiCuenta user={currentUser} />}
 
           {/* PESTAÑA: EQUIPO */}
-          {activeTab === 'equipo' && (
+          {activeTab === 'equipo' && currentUser.rol === 'Administrador' && (
             <div className="flex flex-col h-full">
               <div className="p-6 border-b border-gray-200 flex justify-between items-center bg-gray-50/50">
                 <div>
                   <h3 className="text-lg font-bold text-gray-900">Gestión de Usuarios del Sistema</h3>
-                  <p className="text-sm text-gray-500">Crea cuentas y asigna roles. (Soft Delete activado para trazabilidad).</p>
+                  <p className="text-sm text-gray-500">Gestiona perfiles y roles. La cuenta de acceso debe existir en Authentication con el mismo correo confirmado.</p>
                 </div>
                 <button onClick={abrirModalNuevo} className="flex items-center px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors shadow-sm">
                   <Plus className="w-4 h-4 mr-2" /> Nuevo Empleado
                 </button>
               </div>
-              
+
               <div className="flex-1 overflow-auto p-0">
                 <table className="w-full text-left border-collapse">
                   <thead>
@@ -267,7 +222,7 @@ export const Configuracion = () => {
                             <button onClick={() => abrirModalEditar(emp)} className="text-gray-400 hover:text-emerald-600 p-1.5 rounded-md hover:bg-emerald-50 transition-colors mr-2" title="Editar datos">
                               <Edit className="w-4 h-4" />
                             </button>
-                            
+
                             {emp.rol !== 'Administrador' ? (
                               <button onClick={() => abrirModalDesactivar(emp)} className={`p-1.5 rounded-md transition-colors ${emp.estado === 'Activo' ? 'text-gray-400 hover:text-rose-600 hover:bg-rose-50' : 'text-gray-400 hover:text-emerald-600 hover:bg-emerald-50'}`} title={emp.estado === 'Activo' ? 'Desactivar acceso' : 'Reactivar acceso'}>
                                 {emp.estado === 'Activo' ? <Trash2 className="w-4 h-4" /> : <CheckCircle className="w-4 h-4" />}
@@ -287,15 +242,7 @@ export const Configuracion = () => {
           )}
 
           {/* PESTAÑA: SISTEMA */}
-          {activeTab === 'sistema' && (
-            <div className="flex flex-col items-center justify-center h-[50vh] text-gray-400">
-              <Sliders className="w-16 h-16 mb-4 text-gray-300" />
-              <h3 className="text-lg font-bold text-gray-700">Módulo en Desarrollo</h3>
-              <p className="text-sm text-gray-500 max-w-sm text-center mt-2">
-                Aquí configuraremos las plantillas de PDF, firmas y variables globales para las PQRS.
-              </p>
-            </div>
-          )}
+          {activeTab === 'sistema' && <VariablesSistema user={currentUser} />}
 
         </div>
       </div>
@@ -316,26 +263,21 @@ export const Configuracion = () => {
                 <input required type="text" value={formData.nombres} onChange={e => setFormData({...formData, nombres: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-emerald-500 outline-none" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Correo Electrónico (Para Login)</label>
-                <input required type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-emerald-500 outline-none" />
+                <label className="block text-sm font-medium text-gray-700 mb-1">Correo de acceso (las cuentas vinculadas lo cambian desde Mi cuenta)</label>
+                <input required type="email" disabled={!!empleadoSeleccionado?.auth_user_id} value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-emerald-500 outline-none" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Rol de Sistema</label>
-                <select 
-                  value={formData.rol} 
-                  onChange={e => setFormData({...formData, rol: e.target.value})} 
+                <select
+                  value={formData.rol}
+                  onChange={e => setFormData({...formData, rol: e.target.value})}
                   disabled={empleadoSeleccionado?.rol === 'Administrador'}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-emerald-500 outline-none bg-white disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
                 >
-                  <option value="Comercial">Comercial (Solo lee y edita prospectos)</option>
-                  <option value="Lider">Líder Comercial (Asigna tareas)</option>
-                  <option value="Secretario">Secretario (Maneja PQRS y Documentos)</option>
-                  {empleadoSeleccionado?.rol === 'Administrador' && (
-                    <option value="Administrador">Administrador (Control Total)</option>
-                  )}
+                  {ROLES.map(rol => <option key={rol} value={rol}>{rol}</option>)}
                 </select>
                 {empleadoSeleccionado?.rol === 'Administrador' && (
-                  <p className="text-xs text-rose-600 mt-1 font-bold">Protección de sistema: Única cuenta de Administrador. No puede ser modificada.</p>
+                  <p className="text-xs text-rose-600 mt-1 font-bold">El rol de una cuenta Administrador está protegido.</p>
                 )}
               </div>
               <div className="pt-4 flex justify-end gap-3 border-t border-gray-100 mt-6">
@@ -361,7 +303,7 @@ export const Configuracion = () => {
               {empleadoSeleccionado?.estado === 'Activo' ? '¿Desactivar Acceso?' : '¿Reactivar Acceso?'}
             </h3>
             <p className="text-sm text-gray-500 mb-6">
-              {empleadoSeleccionado?.estado === 'Activo' 
+              {empleadoSeleccionado?.estado === 'Activo'
                 ? 'El usuario no será eliminado de la base de datos por temas de trazabilidad y auditoría, pero no podrá iniciar sesión en la plataforma.'
                 : 'El usuario recuperará el acceso al sistema con su rol actual.'}
             </p>

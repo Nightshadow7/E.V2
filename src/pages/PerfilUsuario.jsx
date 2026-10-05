@@ -132,16 +132,17 @@ export const PerfilUsuario = () => {
     setIsSaving(true);
     try {
       // 1. Actualizar Persona completa
-      await supabase.from('personas').update({
+      const { error: errorPersona } = await supabase.from('personas').update({
         tipo_documento: formData.tipo_documento,
         numero_documento: formData.numero_documento,
         nombres_razon_social: formData.nombres_razon_social,
         celular: formData.celular,
         email: formData.email
       }).eq('id_persona', perfil.id_persona);
+      if (errorPersona) throw errorPersona;
 
       // 2. Actualizar Predio completo
-      await supabase.from('predios').update({
+      const { error: errorPredio } = await supabase.from('predios').update({
         direccion_fisica: formData.direccion_fisica,
         barrio: formData.barrio,
         bloque: formData.bloque,
@@ -150,14 +151,17 @@ export const PerfilUsuario = () => {
         estrato: formData.estrato ? parseInt(formData.estrato) : null,
         uso_aseo: formData.uso_aseo
       }).eq('id_predio', perfil.id_predio);
+      if (errorPredio) throw errorPredio;
 
       // 3. Actualizar Vínculo
-      await supabase.from('vinculos_servicio').update({
+      const { error: errorVinculo } = await supabase.from('vinculos_servicio').update({
         calidad_vinculacion: formData.calidad_vinculacion
       }).eq('id_vinculo', id);
+      if (errorVinculo) throw errorVinculo;
 
       // Recargar la pantalla con los nuevos datos
-      const { data } = await supabase.from('vinculos_servicio').select('*, personas(*), predios(*)').eq('id_vinculo', id).single();
+      const { data, error: errorRecarga } = await supabase.from('vinculos_servicio').select('*, personas(*), predios(*)').eq('id_vinculo', id).single();
+      if (errorRecarga) throw errorRecarga;
       setPerfil(data);
       setIsEditing(false);
     } catch (error) {

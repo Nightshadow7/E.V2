@@ -1,22 +1,27 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
-import { Home, Users, FileText, Settings, Menu, X, MapPin, Search } from 'lucide-react';
+import { Home, Users, FileText, Settings, Menu, X, MapPin } from 'lucide-react';
 import { RadicarPQRS } from './pages/RadicarPQRS';
 import { TramitesPQRS } from './pages/TramitesPQRS';
+import { supabase } from './supabaseClient';
+import { cargarEmpleadoAutenticado } from './lib/session';
+import { puedeVerTrazabilidad } from './lib/roles';
+import { Trazabilidad } from './pages/Trazabilidad';
 import { Login } from './pages/Login';
 
 // Importamos las pantallas
 import { Dashboard } from './pages/Dashboard';
 import { UsuariosPredios } from './pages/UsuariosPredios';
 import { PerfilUsuario } from './pages/PerfilUsuario';
-import { NuevoUsuario } from './pages/NuevoUsuario'; // <-- 1. AÑADE ESTA IMPORTACIÓN
-import { Configuracion } from './pages/Configuracion'; // <-- NUEVO: IMPORTAR LA CONFIGURACIÓN
-import { NotificationsDropdown } from './components/layout/NotificationsDropdown'; // Componente de notificaciones
+import { NuevoUsuario } from './pages/NuevoUsuario';
+import { Configuracion } from './pages/Configuracion';
+import { NotificationsDropdown } from './components/layout/NotificationsDropdown';
+import { GlobalSearch } from './components/layout/GlobalSearch';
 
 const NavItem = ({ path, to, icon: Icon, text, isActive, onClick }) => {
   const targetPath = path || to;
   return (
-    <Link 
+    <Link
       to={targetPath}
       onClick={onClick}
       className={`w-full flex items-center px-4 py-3 mt-2 rounded-lg transition-colors ${
@@ -62,17 +67,17 @@ function AppLayout({ user, onLogout }) {
           <NavItem path="/" icon={Home} text="Dashboard" isActive={location.pathname === '/'} onClick={() => setSidebarOpen(false)} />
           <NavItem path="/usuarios" icon={Users} text="Usuarios y Predios" isActive={location.pathname === '/usuarios'} onClick={() => setSidebarOpen(false)} />
           <NavItem path="/pqrs" icon={FileText} text="Radicados PQRS" isActive={location.pathname === '/pqrs'} onClick={() => setSidebarOpen(false)} />
-          <NavItem path="/trazabilidad" icon={MapPin} text="Trazabilidad" isActive={location.pathname === '/trazabilidad'} onClick={() => setSidebarOpen(false)} />
+          {puedeVerTrazabilidad(user) && <NavItem path="/trazabilidad" icon={MapPin} text="Trazabilidad" isActive={location.pathname === '/trazabilidad'} onClick={() => setSidebarOpen(false)} />}
         </nav>
 
         <div className="p-4 border-t border-slate-800">
             <NavItem to="/configuracion" icon={Settings} text="Configuración" isActive={location.pathname === '/configuracion'} onClick={() => setSidebarOpen(false)} />
-            
+
             {/* AÑADIDO: Muestra los datos reales del usuario logueado */}
             <div className="mt-4 flex items-center justify-between px-4">
               <div className="flex items-center min-w-0">
                 <div className="w-10 h-10 rounded-full bg-emerald-600 flex items-center justify-center text-white font-bold shrink-0">
-                  {user.nombres.substring(0, 2).toUpperCase()}
+                  {(user.nombres || 'Usuario').substring(0, 2).toUpperCase()}
                 </div>
                 <div className="ml-3 min-w-0">
                   <p className="text-sm font-medium text-white truncate" title={user.nombres}>{user.nombres}</p>
@@ -80,9 +85,9 @@ function AppLayout({ user, onLogout }) {
                 </div>
               </div>
             </div>
-            
+
             {/* AÑADIDO: Botón de Cerrar Sesión */}
-            <button 
+            <button
               onClick={onLogout}
               className="mt-4 w-full py-2 text-xs font-bold text-gray-400 hover:text-white border border-gray-700 rounded-lg hover:bg-slate-800 transition-colors"
             >
@@ -92,7 +97,7 @@ function AppLayout({ user, onLogout }) {
       </aside>
 
       {/* Contenido Principal */}
-      <main className="flex-1 flex flex-col overflow-hidden">
+      <main className="flex-1 min-w-0 flex flex-col overflow-hidden">
         <header className="flex items-center justify-between px-6 py-4 bg-white border-b border-gray-200">
           <div className="flex items-center">
             <button onClick={() => setSidebarOpen(true)} className="p-2 mr-3 text-gray-600 rounded-md lg:hidden hover:bg-gray-100"><Menu className="w-6 h-6" /></button>
@@ -101,10 +106,7 @@ function AppLayout({ user, onLogout }) {
             </h1>
           </div>
           <div className="flex items-center space-x-4">
-            <div className="relative hidden md:block">
-              <Search className="w-5 h-5 text-gray-400 absolute left-3 top-2" />
-              <input type="text" placeholder="Buscar cédula o radicado..." className="pl-10 pr-4 py-2 border border-gray-300 rounded-full text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 w-64 bg-gray-50" />
-            </div>
+            <GlobalSearch key={location.pathname} location={location} />
             <NotificationsDropdown />
           </div>
         </header>
@@ -114,24 +116,20 @@ function AppLayout({ user, onLogout }) {
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/usuarios" element={<UsuariosPredios />} />
-            <Route path="/usuarios/nuevo" element={<NuevoUsuario />} /> 
-            <Route path="/usuarios/:id" element={<PerfilUsuario />} /> 
-            <Route path="/configuracion" element={<Configuracion />} /> 
-            
+            <Route path="/usuarios/nuevo" element={<NuevoUsuario />} />
+            <Route path="/usuarios/:id" element={<PerfilUsuario />} />
+            <Route path="/configuracion" element={<Configuracion user={user} />} />
+
             {/* AÑADIDO: Rutas para PQRS */}
             <Route path="/pqrs/nuevo" element={<RadicarPQRS />} />
-            
+
             {/* AÑADIDO: Tablero Kanban Oficial */}
             <Route path="/pqrs" element={<TramitesPQRS />} />
 
-            
 
-            <Route path="/trazabilidad" element={
-              <div className="flex flex-col items-center justify-center h-full text-gray-400">
-                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4"><MapPin className="w-8 h-8 text-gray-300" /></div>
-                <h3 className="text-lg font-medium text-gray-600">Módulo en Construcción</h3>
-              </div>
-            } />
+
+            <Route path="/trazabilidad" element={<Trazabilidad user={user} />} />
+            <Route path="*" element={<div>Página no encontrada. <Link to="/" className="text-emerald-700 underline">Volver al inicio</Link></div>} />
           </Routes>
         </div>
       </main>
@@ -140,15 +138,38 @@ function AppLayout({ user, onLogout }) {
 }
 
 export default function App() {
-  const [user, setUser] = useState(() => {
-    const loggedInUser = localStorage.getItem('ecoUser');
-    return loggedInUser ? JSON.parse(loggedInUser) : null;
-  });
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [errorSesion, setErrorSesion] = useState('');
 
-  const handleLogout = () => {
+  useEffect(() => {
+    let active = true;
+    let revision = 0;
+    const actualizar = async () => {
+      const current = ++revision;
+      try {
+        const empleado = await cargarEmpleadoAutenticado();
+        if (active && current === revision) { setUser(empleado); setErrorSesion(''); }
+      } catch (error) { if (active && current === revision) { setUser(null); setErrorSesion(error.message); } }
+      finally { if (active && current === revision) setLoading(false); }
+    };
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_OUT') { revision++; setUser(null); localStorage.removeItem('ecoUser'); }
+      else setTimeout(() => { if (active) actualizar(); }, 0);
+    });
+    actualizar();
+    window.addEventListener('eco-user-updated', actualizar);
+    window.addEventListener('focus', actualizar);
+    return () => { active = false; subscription.unsubscribe(); window.removeEventListener('eco-user-updated', actualizar); window.removeEventListener('focus', actualizar); };
+  }, []);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
     setUser(null);
     localStorage.removeItem('ecoUser');
   };
+  if (loading) return <p role="status" className="p-8">Validando sesión…</p>;
+  if (errorSesion && !user) return <div className="p-8"><p role="alert">{errorSesion}</p><button className="mt-4 underline" onClick={async () => { await handleLogout(); setErrorSesion(''); }}>Volver al inicio de sesión</button></div>;
 
   // AÑADIDO: Si NO hay usuario, mostramos el Login. No lo dejamos pasar al CRM.
   if (!user) {
