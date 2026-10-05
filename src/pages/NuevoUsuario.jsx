@@ -86,15 +86,27 @@ export const NuevoUsuario = () => {
     setMensaje({ tipo: '', texto: '' });
 
     try {
+      // Limpieza de datos (Quitar espacios en blanco al inicio y final)
+      const dataLimpia = {
+        numero_documento: formData.numero_documento.trim(),
+        nombres_razon_social: formData.nombres_razon_social.trim().toUpperCase(),
+        celular: formData.celular.trim(),
+        email: formData.email.trim().toLowerCase(),
+        direccion_fisica: formData.direccion_fisica.trim().toUpperCase(),
+        barrio: formData.barrio.trim().toUpperCase(),
+        codigo_acuasan: formData.codigo_acuasan.trim(),
+        codigo_essa: formData.codigo_essa.trim()
+      };
+
       // 1. Guardar a la Persona
       const { data: personaData, error: errorPersona } = await supabase
         .from('personas')
         .upsert({
           tipo_documento: formData.tipo_documento,
-          numero_documento: formData.numero_documento,
-          nombres_razon_social: formData.nombres_razon_social,
-          celular: formData.celular,
-          email: formData.email
+          numero_documento: dataLimpia.numero_documento,
+          nombres_razon_social: dataLimpia.nombres_razon_social,
+          celular: dataLimpia.celular || null,
+          email: dataLimpia.email || null
         }, { onConflict: 'numero_documento' })
         .select()
         .single();
@@ -105,14 +117,14 @@ export const NuevoUsuario = () => {
       const { data: predioData, error: errorPredio } = await supabase
         .from('predios')
         .insert({
-          codigo_acuasan: formData.codigo_acuasan || null,
-          codigo_essa: formData.codigo_essa || null,
-          direccion_fisica: formData.direccion_fisica,
-          barrio: formData.barrio,
+          codigo_acuasan: dataLimpia.codigo_acuasan || null,
+          codigo_essa: dataLimpia.codigo_essa || null,
+          direccion_fisica: dataLimpia.direccion_fisica,
+          barrio: dataLimpia.barrio,
           bloque: formData.bloque || 'Bloque Por Definir',
-          estrato: formData.estrato ? parseInt(formData.estrato) : null,
+          estrato: formData.estrato ? parseInt(formData.estrato, 10) : null,
           uso_aseo: formData.uso_aseo || null,
-          municipio: 'San Gil'
+          municipio: 'SAN GIL'
         })
         .select()
         .single();

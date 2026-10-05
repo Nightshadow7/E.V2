@@ -72,8 +72,11 @@ export const RadicarPQRS = () => {
       alert("⚠️ Debes buscar y seleccionar un cliente antes de radicar.");
       return;
     }
-    if (!formData.asunto.trim() || !formData.descripcion.trim()) {
-      alert("⚠️ El asunto y la descripción son obligatorios.");
+    const asuntoLimpio = formData.asunto.trim();
+    const descripcionLimpia = formData.descripcion.trim();
+
+    if (!asuntoLimpio || !descripcionLimpia) {
+      alert("⚠️ El asunto y la descripción son obligatorios y no pueden estar vacíos.");
       return;
     }
 
@@ -82,8 +85,8 @@ export const RadicarPQRS = () => {
     try {
       // Usamos el poder del JSONB para guardar los datos específicos del formulario
       const datosEspecificosJSON = {
-        asunto: formData.asunto,
-        descripcion: formData.descripcion,
+        asunto: asuntoLimpio,
+        descripcion: descripcionLimpia,
         urgencia: formData.urgencia,
         documentos_adjuntos: ["Factura_Acuasan_Nov2024.pdf"] // Simulado por ahora
       };

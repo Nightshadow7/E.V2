@@ -330,10 +330,12 @@ export const Configuracion = () => {
                   <option value="Comercial">Comercial (Solo lee y edita prospectos)</option>
                   <option value="Lider">Líder Comercial (Asigna tareas)</option>
                   <option value="Secretario">Secretario (Maneja PQRS y Documentos)</option>
-                  <option value="Administrador">Administrador (Control Total)</option>
+                  {empleadoSeleccionado?.rol === 'Administrador' && (
+                    <option value="Administrador">Administrador (Control Total)</option>
+                  )}
                 </select>
                 {empleadoSeleccionado?.rol === 'Administrador' && (
-                  <p className="text-xs text-amber-600 mt-1 font-medium">Protección de sistema: No puedes cambiar el rol de un Administrador.</p>
+                  <p className="text-xs text-rose-600 mt-1 font-bold">Protección de sistema: Única cuenta de Administrador. No puede ser modificada.</p>
                 )}
               </div>
               <div className="pt-4 flex justify-end gap-3 border-t border-gray-100 mt-6">

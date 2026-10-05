@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
-import { Home, Users, FileText, Settings, Bell, Menu, X, MapPin, Search } from 'lucide-react';
+import { Home, Users, FileText, Settings, Menu, X, MapPin, Search } from 'lucide-react';
 import { RadicarPQRS } from './pages/RadicarPQRS';
 import { TramitesPQRS } from './pages/TramitesPQRS';
 import { Login } from './pages/Login';
@@ -11,6 +11,7 @@ import { UsuariosPredios } from './pages/UsuariosPredios';
 import { PerfilUsuario } from './pages/PerfilUsuario';
 import { NuevoUsuario } from './pages/NuevoUsuario'; // <-- 1. AÑADE ESTA IMPORTACIÓN
 import { Configuracion } from './pages/Configuracion'; // <-- NUEVO: IMPORTAR LA CONFIGURACIÓN
+import { NotificationsDropdown } from './components/layout/NotificationsDropdown'; // Componente de notificaciones
 
 const NavItem = ({ path, to, icon: Icon, text, isActive, onClick }) => {
   const targetPath = path || to;
@@ -104,10 +105,7 @@ function AppLayout({ user, onLogout }) {
               <Search className="w-5 h-5 text-gray-400 absolute left-3 top-2" />
               <input type="text" placeholder="Buscar cédula o radicado..." className="pl-10 pr-4 py-2 border border-gray-300 rounded-full text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 w-64 bg-gray-50" />
             </div>
-            <button className="relative p-2 text-gray-400 hover:text-gray-600 transition-colors">
-              <Bell className="w-6 h-6" />
-              <span className="absolute top-1 right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>
-            </button>
+            <NotificationsDropdown />
           </div>
         </header>
 
